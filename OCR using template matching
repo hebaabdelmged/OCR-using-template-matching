@@ -1,0 +1,70 @@
+import cv2
+import numpy as np
+
+def non_max_suppression_fast(boxes, overlapThresh):
+    if len(boxes) == 0:
+        return []
+    if boxes.dtype.kind == "i":
+        boxes = boxes.astype("float")
+    pick = []
+    x1 = boxes[:, 0]
+    y1 = boxes[:, 1]
+    x2 = boxes[:, 2]
+    y2 = boxes[:, 3]
+    area = (x2 - x1 + 1) * (y2 - y1 + 1)
+    idxs = np.argsort(y2)
+    while len(idxs) > 0:
+        last = len(idxs) - 1
+        i = idxs[last]
+        pick.append(i)
+        xx1 = np.maximum(x1[i], x1[idxs[:last]])
+        yy1 = np.maximum(y1[i], y1[idxs[:last]])
+        xx2 = np.minimum(x2[i], x2[idxs[:last]])
+        yy2 = np.minimum(y2[i], y2[idxs[:last]])
+        w = np.maximum(0, xx2 - xx1 + 1)
+        h = np.maximum(0, yy2 - yy1 + 1)
+        overlap = (w * h) / area[idxs[:last]]
+        idxs = np.delete(idxs, np.concatenate(([last], np.where(overlap > overlapThresh)[0])))
+    return boxes[pick].astype("int")
+    
+    colorImg = cv2.imread('example.png')
+orig = colorImg.copy()
+img_gray = cv2.cvtColor(colorImg, cv2.COLOR_BGR2GRAY)
+samples = ['0.png', '1.png', '2.png', '3.png', '4.png', '5.png', '6.png', '7.png', '8.png', '9.png']
+threshold = .95
+numbers = []
+detects = []
+key = 0
+for i in samples:
+    key = int(i[0])
+    template = cv2.imread(i, 0)
+    w, h = template.shape[::-1]
+    res = cv2.matchTemplate(img_gray, template, cv2.TM_CCOEFF_NORMED)
+    loc = np.where(res >= threshold) 
+
+    for pt in zip(*loc[::-1]):
+        cv2.rectangle(colorImg, pt, (pt[0] + w, pt[1] + h), (0, 0, 255), 2)
+        detects.append(list(pt + (pt[0] + w, pt[1] + h)))
+    ones = np.array(detects)
+    ones = non_max_suppression_fast(ones, threshold)
+
+    for x, y, w, h in ones:
+        cv2.rectangle(orig, (x, y), (w, h), (0, 0, 255), 2)
+        numbers.append([x, y, w, h, key])
+    detects.clear()
+    ones = None
+    del ones
+
+output = sorted(numbers, key=lambda item: (item[1], item[0]))
+
+count = 1
+for i in range(len(output)):
+    if count % 10 != 0:
+        print(output[i][4], end="")
+    else:
+        print(output[i][4], end="\n")
+    count += 1
+    
+    
+    
+    
